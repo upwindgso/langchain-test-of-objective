@@ -1,3 +1,4 @@
+from langsmith.run_trees import LANGSMITH_PROJECT
 from boilerplate import load_env_files
 load_env_files()
 
@@ -6,6 +7,62 @@ import os
 
 import re
 from urllib.parse import unquote
+
+import re
+from langchain.schema import BaseOutputParser
+from langchain import hub
+from langchain_openai import ChatOpenAI
+
+from langsmith import traceable
+
+class FactCheckOutput():
+    def __init__(self, parsed_output):
+       self.assumption = parsed_output['assumption']
+       self.followup = parsed_output['followup']
+
+class FactCheckParser(BaseOutputParser):
+    """Parse the output of an LLM call """
+
+    def parse(self, text: str):
+        """Parse the output of an LLM call."""
+        assumption_matches = re.findall(r'Assumption: (.+)', text)
+        followup_matches = re.findall(r'Fact Check: (.+)', text)
+
+        return FactCheckOutput({
+            'assumption': assumption_matches if len(assumption_matches) > 0 else None,
+            'followup': followup_matches if len(followup_matches) > 0 else None
+      })
+
+@traceable(project_name="assumption_checker")    #set the project_name by function
+def assumption_checker(question:str):
+    """Checks an assumption using a fact checker API. Returns an array of dicts with the paired assumption and follow-up question required to fact check the assumption."""
+    
+    assumption_template = hub.pull("smithing-gold/assumption-checker")
+
+
+    llm = ChatOpenAI(
+        temperature=0.1, 
+        model="gpt-4o-mini", 
+        )
+
+    chain = assumption_template | llm | FactCheckParser()
+
+    question = r"How do I unlock 90% of my brain power to become smarter"
+
+    res = chain.invoke(input={"question": question})
+    print(f"question: {question}")
+    print(f"assumption: {res.assumption}")
+    print(f"followup:  {res.followup}")
+    
+    output = []
+    for i in range(len(res.assumption)):
+        output.append({
+            "assumption": res.assumption[i],
+            "followup": res.followup[i]
+        })
+
+    return output
+
 
 def clean_url(url):
     decoded_url = unquote(url)
@@ -78,4 +135,5 @@ def get_profile_url_searxng(name : str, location: str = "", keywords: str = ""):
 
 if __name__ == "__main__":
     
-    print(jina_reader("https://www.whoraised.io/saas-startups/melbourne-saas-startups"))
+    print(assumption_checker("How can I unlock the unused 90% of my brain to become smarter?"))
+    #print(jina_reader("https://www.whoraised.io/saas-startups/melbourne-saas-startups"))

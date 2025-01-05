@@ -4,9 +4,9 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.tools import Tool
 from langchain.agents import (create_react_agent, AgentExecutor)
 
-from tools import get_profile_url_searxng, jina_reader
+from tools import get_profile_url_searxng, jina_reader, assumption_checker
 from langchain_community.tools import HumanInputRun
-from output_parsers import startup_parser
+
 
 
 from boilerplate import load_env_files
@@ -65,6 +65,12 @@ tools_for_agent = [
     ),
     HumanInputRun(
         description="Useful for when you need to ask a human for help or clarification.",
+    ),
+    Tool(
+        name="Assumption Checker",
+        func=assumption_checker,
+        description="Useful for identifying the assumptions in a question and identfying the followup question required to validate the assumptions.",
+
     ),
     ]
 
